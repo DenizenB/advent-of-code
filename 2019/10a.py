@@ -1,3 +1,6 @@
+import math
+from numpy import add, subtract, divide, multiply
+
 class AsteroidMap:
     def __init__(self, map_str):
         self.asteroids = []
@@ -9,77 +12,44 @@ class AsteroidMap:
                 if line[x] == '#':
                     self.asteroids.append((x,y))
 
-    def free_sight(self, a1, a2):
-        x1, y1 = a1
-        x2, y2 = a2
-
-        # Define bounding box
-        min_x = min(x1, x2)
-        max_x = max(x1, x2)
-        min_y = min(y1, y2)
-        max_y = max(y1, y2)
-
-        # Solve for line equation, y = kx+m
-        k = 0 if x1 == x2 else (y2 - y1) / (x2 - x1)
-        m = y1 - k * x1
-
-        can_see = True
-        for a in self.asteroids:
-            x, y = a
-
-            if a == a1 or a == a2:
-                continue
-
-            if x < min_x or x > max_x or y < min_y or y > max_y:
-                # Outside of bounding box; i.e. not between the asteroids
-                continue
-
-            if y == k * x + m:
-                # Asteroid is in line of sight
-                can_see = False
-                break
-
-        return can_see
+        self.max_x = max(map(lambda point: point[0], self.asteroids))
+        self.max_y = max(map(lambda point: point[1], self.asteroids))
 
     def count_visible(self, origin):
-        visible = 0
-        for a in self.asteroids:
-            if a != origin and self.free_sight(origin, a):
-                print("{} can see {}".format(origin, a))
-                visible += 1
-        print("{} can see {} asteroids".format(origin, visible))
-        return visible
+        visible = self.asteroids.copy()
+
+        for target in self.asteroids:
+            if target == origin:
+                visible.remove(target)
+                continue
+
+            diff = subtract(target, origin)
+            step = divide(diff, math.gcd(*diff))
+
+            for i in range(1, 2**31):
+                hidden_point = tuple(add(target, multiply(step, i)))
+                if hidden_point in visible:
+                    visible.remove(hidden_point)
+
+                x, y = hidden_point
+                if x < 0 or y < 0 or x > self.max_x or y > self.max_y:
+                    break
+
+        return len(visible)
 
     def find_best(self):
-        return max(self.asteroids, key=self.count_visible)
+        visible_counts = list(map(self.count_visible, self.asteroids))
+        best_count = max(visible_counts)
+        best_index = visible_counts.index(best_count)
+
+        return (self.asteroids[best_index], best_count)
 
 def main():
     with open("10.txt") as f:
         map_str = f.read()
 
-    map_str = """.#..##.###...#######
-##.############..##.
-.#.######.########.#
-.###.#######.####.#.
-#####.##.#.##.###.##
-..#####..#.#########
-####################
-#.####....###.#.#.##
-##.#################
-#####.##.###..####..
-..######..##.#######
-####.##.####...##..#
-.#####..#.######.###
-##...#.##########...
-#.##########.#######
-.####.#.###.###.#.##
-....##.##.###..#####
-.#.#.###########.###
-#.#.#.#####.####.###
-###.##.####.##.#..##"""
     asteroid_map = AsteroidMap(map_str)
-    best_asteroid = asteroid_map.find_best()
-    visible_count = asteroid_map.count_visible(best_asteroid)
-    print("Best asteroid is {} with free LoS to {} other asteroids".format(best_asteroid, visible_count))
+    asteroid, count = asteroid_map.find_best()
+    print("Best asteroid is {} with free LoS to {} other asteroids".format(asteroid, count))
 
 main()
